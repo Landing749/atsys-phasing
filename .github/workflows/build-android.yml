@@ -37,6 +37,10 @@ jobs:
         env:
           CI: 1
 
+      - name: Force JS bundle into debug APK (no Metro on standalone installs)
+        run: |
+          sed -i 's/^react {/react {\n    \/\/ Embed JS bundle in debug build since this APK is sideloaded with no Metro server running\n    debuggableVariants = []/' android/app/build.gradle
+
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
