@@ -10,10 +10,15 @@ import {
 import { LicenseInfo, SavedLicense } from '../types';
 
 const FETCH_TIMEOUT_MS = 10000;
+const CONNECTIVITY_PROBE_TIMEOUT_MS = 4000;
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = FETCH_TIMEOUT_MS
+): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
@@ -44,12 +49,26 @@ export async function getDeviceIdHash(): Promise<string> {
   return shortHash;
 }
 
-/** Equivalent of LicenseManager.check_internet_connection() on the PC. */
+/**
+ * Generic internet-reachability probe — deliberately NOT pointed at Firebase.
+ * "Mobile data is on" (radio connected) is not the same as "there is a real
+ * route to the internet": weak signal, a captive portal, or a DNS hiccup can
+ * all leave the radio "open" with no actual connectivity, which previously
+ * showed up as a false positive because the old check pinged our own
+ * Firebase endpoint and conflated "Firebase is up" with "internet exists".
+ * Uses the same generate_204 style endpoint Android's own connectivity
+ * checker relies on — a tiny, fast, no-body response. A non-204 response
+ * (e.g. a captive portal login page returning 200 with HTML) is treated as
+ * "no real internet", matching Android's own semantics.
+ */
 export async function isOnline(): Promise<boolean> {
   try {
-    const res = await fetchWithTimeout(`${FIREBASE_CONFIG.databaseURL}/.json?shallow=true`);
-    // A 401 still proves we reached the server — RTDB rules may just reject the read.
-    return res.ok || res.status === 401;
+    const res = await fetchWithTimeout(
+      'https://connectivitycheck.gstatic.com/generate_204',
+      { method: 'GET' },
+      CONNECTIVITY_PROBE_TIMEOUT_MS
+    );
+    return res.status === 204;
   } catch {
     return false;
   }
