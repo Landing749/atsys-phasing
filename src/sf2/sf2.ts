@@ -21,11 +21,11 @@ function atomicWriteBytes(target: File, bytes: Uint8Array): void {
   tmp.write(bytes);
 
   try {
-    tmp.move(target, { overwrite: true });
+    tmp.moveSync(target, { overwrite: true });
   } catch {
     // Fall back to delete-then-move if overwrite isn't honoured on this platform.
     if (target.exists) target.delete();
-    tmp.move(target);
+    tmp.moveSync(target);
   }
 }
 
@@ -41,7 +41,7 @@ export async function loadSf2(pickedUri: string, displayName: string): Promise<P
 
   const working = new File(Paths.document, WORKING_FILE_NAME);
   if (working.exists) working.delete();
-  source.copy(working);
+  source.copySync(working);
   workingFile = working;
 
   const bytes = working.bytesSync();
