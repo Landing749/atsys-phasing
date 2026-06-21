@@ -1,33 +1,37 @@
 {
   "expo": {
-    "name": "ATSYS Mobile POC",
-    "slug": "atsys-mobile-poc",
-    "version": "1.0.0",
+    "name": "ATSYS Mobile",
+    "slug": "atsys-mobile",
+    "version": "4.5.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a237e"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.athstudios.atsys"
     },
     "android": {
-      "package": "com.athstudios.atsysmobilepoc",
+      "package": "com.athstudios.atsys",
+      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#0f172a",
+        "backgroundColor": "#1a237e",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+      }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "web": { "favicon": "./assets/favicon.png" },
     "plugins": [
       [
         "expo-camera",
@@ -37,7 +41,8 @@
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
-      ]
+      ],
+      ["expo-document-picker", { "iCloudContainerEnvironment": "Production" }]
     ]
   }
 }

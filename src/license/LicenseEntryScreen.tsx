@@ -1,107 +1,80 @@
-import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { C, SCHOOL_NAME } from '../constants';
+import { Btn, Card, StatusRow } from '../ui';
 import { validateLicense } from './LicenseManager';
+import { clearLicense, loadSavedLicense } from '../storage';
 
-interface Props {
-  reason?: string;
-  onLicensed: () => void;
-}
+export default function LicenseEntryScreen({ reason, onLicensed }: { reason?: string; onLicensed: () => void }) {
+  const [key, setKey]       = useState('');
+  const [busy, setBusy]     = useState(false);
+  const [msg, setMsg]       = useState<string | null>(reason ?? null);
+  const [isErr, setIsErr]   = useState(!!reason);
+  const [savedOrg, setSavedOrg] = useState<string | null>(null);
 
-export default function LicenseEntryScreen({ reason, onLicensed }: Props) {
-  const [key, setKey] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(reason ?? null);
-  const [isError, setIsError] = useState(!!reason);
+  useEffect(() => {
+    loadSavedLicense().then(s => { if (s) setSavedOrg(s.data.org ?? 'Unknown'); });
+  }, []);
 
-  async function handleActivate() {
-    setBusy(true);
-    setMessage('Validating license…');
-    setIsError(false);
-    const result = await validateLicense(key);
+  async function activate() {
+    setBusy(true); setMsg('Validating license…'); setIsErr(false);
+    const r = await validateLicense(key);
     setBusy(false);
-    if (result.valid) {
-      setMessage('✅ License active.');
-      setIsError(false);
-      onLicensed();
-    } else {
-      setMessage(result.message);
-      setIsError(true);
-    }
+    if (r.valid) { setMsg('✅  License active.'); setIsErr(false); setTimeout(onLicensed, 300); }
+    else { setMsg(r.message); setIsErr(true); }
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <Text style={styles.icon}>🔑</Text>
-      <Text style={styles.title}>License Required</Text>
-      <Text style={styles.subtitle}>
-        Enter the license key issued by your administrator. Once validated, it's saved
-        on this device and works offline — same as the PC app.
-      </Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="License key"
-        placeholderTextColor="#64748b"
-        autoCapitalize="none"
-        autoCorrect={false}
-        value={key}
-        onChangeText={setKey}
-        editable={!busy}
-      />
-
-      {message && (
-        <Text style={[styles.message, isError ? styles.messageError : styles.messageOk]}>
-          {message}
-        </Text>
-      )}
-
-      <TouchableOpacity
-        style={[styles.button, (busy || !key.trim()) && styles.buttonDisabled]}
-        disabled={busy || !key.trim()}
-        onPress={handleActivate}
-      >
-        {busy ? (
-          <ActivityIndicator color="#0f172a" />
-        ) : (
-          <Text style={styles.buttonText}>Activate</Text>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg_main }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={s.hdr}>
+        <Text style={s.hdrLabel}>ATSYS MOBILE  •  {SCHOOL_NAME}</Text>
+        <Text style={s.icon}>🔑</Text>
+        <Text style={s.title}>License Required</Text>
+        <Text style={s.sub}>Enter the license key issued by your administrator.{'\n'}Works offline after first activation — same as the PC.</Text>
+      </View>
+      <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+        {savedOrg && (
+          <Card title="💾  SAVED LICENSE" hdrColor={C.info} style={{ marginBottom: 10 }}>
+            <StatusRow icon="🏫" label="Organisation" value={savedOrg} valueColor={C.success} />
+            <Btn label="🗑️  Clear saved license" onPress={async () => { await clearLicense(); setSavedOrg(null); }} color={C.error} style={{ marginTop: 10 }} />
+          </Card>
         )}
-      </TouchableOpacity>
+        <Card title="🔐  ACTIVATE LICENSE" hdrColor={C.primary_accent}>
+          <Text style={s.inputLabel}>License Key</Text>
+          <TextInput
+            style={s.input} placeholder="Enter license key" placeholderTextColor={C.border}
+            autoCapitalize="none" autoCorrect={false} value={key} onChangeText={setKey}
+            editable={!busy} onSubmitEditing={activate} returnKeyType="done"
+          />
+          {msg && <View style={[s.msgBox, isErr ? s.msgErr : s.msgOk]}><Text style={s.msgText}>{msg}</Text></View>}
+          {busy && <View style={s.busyRow}><ActivityIndicator color={C.primary_accent} size="small" /><Text style={s.busyText}>Connecting to license server…</Text></View>}
+          <Btn label="Activate" onPress={activate} disabled={busy || !key.trim()} loading={busy} color={C.primary} />
+        </Card>
+        <View style={s.infoBox}>
+          <Text style={s.infoIcon}>ℹ️</Text>
+          <Text style={s.infoText}>Hardware-locked to this device on first activation. Same licensing system as the ATSYS PC app. Requires internet once; works offline after that.</Text>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a', padding: 24, justifyContent: 'center' },
-  icon: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
-  title: { fontSize: 22, fontWeight: '800', color: '#f8fafc', textAlign: 'center', marginBottom: 8 },
-  subtitle: { color: '#94a3b8', fontSize: 13, textAlign: 'center', marginBottom: 24, lineHeight: 19 },
-  input: {
-    backgroundColor: '#1e293b',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: '#f1f5f9',
-    fontSize: 15,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  message: { fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 18 },
-  messageOk: { color: '#4ade80' },
-  messageError: { color: '#f87171' },
-  button: { backgroundColor: '#22d3ee', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  buttonDisabled: { backgroundColor: '#334155' },
-  buttonText: { color: '#0f172a', fontWeight: '800', fontSize: 15 },
+const s = StyleSheet.create({
+  hdr: { backgroundColor: C.primary_dark, paddingHorizontal: 20, paddingTop: 56, paddingBottom: 22, alignItems: 'center' },
+  hdrLabel: { color: C.primary_accent, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 10 },
+  icon: { fontSize: 40, marginBottom: 6 },
+  title: { color: C.text_primary, fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  sub: { color: C.text_secondary, fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  body: { padding: 16, paddingBottom: 40 },
+  inputLabel: { color: C.text_secondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginBottom: 6 },
+  input: { backgroundColor: C.bg_hover, paddingHorizontal: 14, paddingVertical: 12, color: C.text_primary, fontSize: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border, fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
+  msgBox: { padding: 10, marginBottom: 10 },
+  msgErr: { backgroundColor: '#b71c1c33', borderLeftWidth: 3, borderLeftColor: C.error },
+  msgOk: { backgroundColor: '#1b5e2033', borderLeftWidth: 3, borderLeftColor: C.success },
+  msgText: { color: C.text_primary, fontSize: 12, lineHeight: 17 },
+  busyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  busyText: { color: C.text_secondary, fontSize: 12 },
+  infoBox: { flexDirection: 'row', backgroundColor: C.bg_card, padding: 14, marginTop: 6, gap: 10 },
+  infoIcon: { fontSize: 15 },
+  infoText: { flex: 1, color: C.text_secondary, fontSize: 11, lineHeight: 17 },
 });

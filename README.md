@@ -1,118 +1,118 @@
-# ATSYS Mobile — Proof of Concept
+# ATSYS Mobile — v4.5.2
 
-A working slice of the [ATSYS mobile roadmap](./): **Phase 0.5 (Licensing)** and
-**Phases 1–2 (SF2 load + QR scan/mark/save)**. It's a real Expo/TypeScript app,
-not a mockup — it builds to an installable Android APK.
+**Companion to ATSYS PC v4.5.2** · React Native / Expo · Android & iOS
 
-## What it actually does
+Mobile attendance scanner for **Dr. Alfredo Pio De Roda Elementary School**.
 
-1. **EULA** gate on first run (placeholder text — swap in the real EULA.txt from
-   the PC installer before distributing beyond this POC).
-2. **License activation** against the same Firebase RTDB project the PC app
-   (`attendance_system_v4_5_2.py`) already uses — key validation, one-device
-   hardware lock, hardware/sharing reporting, persistent local storage, and a
-   10-second periodic re-verification poll that fails open when offline.
-3. **Pick an SF2 .xlsx file**, parse it with SheetJS exactly like
-   `_load_file_impl` on the PC: find today's date column, build the student
-   list, read existing ✓ marks.
-4. **Scan QR codes** (or tap the roster directly) to mark a student present.
-   Each mark writes `✓` into the in-memory workbook, saves atomically (temp
-   file + rename), and reloads from disk — mirrors `auto_save_attendance`.
-5. **Share the updated file** back out via the native share sheet so you can
-   open it in Excel and confirm the ✓ landed in the right cell.
+---
 
-## What's simplified vs. the PC app
+## Tabs — exact mirror of PC app notebook
 
-| PC app | This POC |
-|---|---|
-| WMI UUID hardware fingerprint | Android ID (`expo-application`), SHA-256 hashed |
-| Sequential `HWID_PRIMARY`/`HWID_SECONDARY` labels + counter file | Device keyed directly by its hashed ID — same outcome, no counter file needed |
-| 3-attempt license re-entry dialog | Single re-entry screen, no attempt limit |
-| Full EULA.txt | Placeholder text |
-| Layout Wizard with auto-detect | Fixed layout defaults only (date row 11, students from row 13, name in column B) |
+| Tab | Icon | Matches PC tab |
+|-----|------|----------------|
+| **Dashboard** | 📊 | `DASHBOARD` — 4 KPI cards, analytics bar, quick actions |
+| **Scan**      | 📷 | `SCAN` — camera feed, DO-NOT-OPEN ticker, system status, counters, controls |
+| **Manual**    | ✍️  | `MANUAL ATTENDANCE` — searchable roster, mark/unmark, counters |
+| **QR Codes**  | 🔲 | `QR CODE GENERATOR` — full student grid, full-screen QR modal |
+| **Stats**     | 📈 | `STUDENT STATISTICS` — fuzzy search, KPI pills, risk calculator, day-of-week breakdown |
+| **Settings**  | ⚙️  | `SETTINGS` — Layout Wizard, scan debounce, session journal, license, share file |
 
-Everything else — the Firebase validate/lock/report/poll sequence, the
-fail-open behavior on network errors, the atomic save pattern, the 2-second
-scan debounce — is a direct port of the PC's logic.
+---
 
-## Built on a recent Expo SDK — read this before changing anything
+## Exact color match
 
-This project uses **Expo SDK 56**, which is newer than most tutorials and
-training-data knowledge of Expo. Two APIs that changed and matter here:
+All colors are taken directly from `MODERN_COLORS` in `attendance_system_v4_5_2.py`:
 
-- **`expo-file-system`** got a full rewrite in SDK 54. The old
-  `FileSystem.readAsStringAsync` / `writeAsStringAsync` style API now throws
-  at runtime. This project uses the new `File` / `Directory` / `Paths`
-  class-based API (see `src/sf2/sf2.ts`). If you're pasting in older example
-  code, it almost certainly uses the deprecated API and will need adapting.
-- **`expo-barcode-scanner`** is gone. Scanning is built into `expo-camera`'s
-  `CameraView` via the `onBarcodeScanned` prop (see `src/scan/ScanScreen.tsx`).
-
-If anything in here needs changing, check `https://docs.expo.dev/versions/v56.0.0/`
-for the current API rather than relying on older trained knowledge of Expo.
-
-## Running it yourself
-
-```bash
-npm install
-npx expo start
+```
+primary_dark  #1a237e   bg_main      #0d1b2a
+primary       #283593   bg_card      #1a2332
+primary_light #3949ab   bg_hover     #242f3e
+primary_accent#5c6bc0   text_primary #ffffff
+success       #43a047   text_secondary#b0bec5
+warning       #fb8c00   border       #37474f
+error         #e53935   divider      #263238
+info          #1e88e5
 ```
 
-Scan the QR with Expo Go for a quick look, **but**: camera barcode scanning
-and file picking work in Expo Go, while EAS-style native builds aren't needed
-for this level of testing. For the real device behavior (and to test the
-license's Android ID lookup), build and install the APK from CI (below) or
-run `npx expo run:android` locally with Android Studio installed.
+Splash background = `#1a237e` (primary_dark), matching PC splash.  
+App header = `primary_dark`. 3px divider below header = `primary`. Tab bar = `bg_card`.
 
-## GitHub Actions build
+---
 
-`.github/workflows/build-android.yml` builds a debug APK **entirely on
-GitHub's runners** — no EAS account, no Expo token, no secrets required:
+## File move semantics
 
-1. Push this repo to GitHub.
-2. Actions runs automatically on push to `main` (or trigger it manually from
-   the Actions tab — "Run workflow").
-3. It type-checks, runs `expo prebuild` to generate the native Android
-   project, then `./gradlew assembleDebug`.
-4. Download the APK from the run's **Artifacts** section — install it on a
-   test device via `adb install` or by copying it over and tapping it.
+The app **moves** (not copies) the picked SF2 file into app storage.  
+This preserves all Excel formatting, images, and embedded objects — exactly what the PC does when it opens the file in place.
 
-This intentionally skips EAS Build/cloud signing — it's the same
-self-contained pattern GitHub itself uses for React Native Android CI: no
-external service, just Node + the JDK + the Android SDK that's already
-preinstalled on `ubuntu-latest` runners.
+```
+Admin PC → transfer SF2.xlsx → Teacher phone
+Teacher phone → ATSYS Mobile → moves file → marks ✓ → atomic save
+Teacher phone → Settings → Share Updated SF2 → Admin PC → opens in Excel ✓
+```
 
-## Setting up a real license key for testing
+---
 
-The `validateLicense()` flow expects a key that exists under `/licenses` in
-the same Firebase RTDB project the PC app uses
-(`https://licenses-5c397-default-rtdb.firebaseio.com`, set in
-`src/constants.ts`). Use a license key you've already issued for the PC app
-to test end-to-end — or point `FIREBASE_CONFIG.databaseURL` at a throwaway
-RTDB project with `{ "licenses": { "TESTKEY": { "active": true } } }`
-seeded in if you want to test without touching production data.
+## Stats tab — full parity with PC
 
-## Known limitations / what to verify on a real device
+- Fuzzy name search: exact substring → token match → SequenceMatcher ratio ≥ 0.55 (up to 8 results)
+- KPI pills: Days Tracked · Present% · Absent% · Most Absent Day
+- Attendance rate progress bar (green/red)
+- Day-of-week breakdown pills
+- Absent dates list
+- **Risk Calculator**: CRITICAL (<70%) / HIGH (<80%) / MEDIUM (<90%) / LOW (≥90%)
+- Consecutive absence detection (3+ bumps to at least HIGH)
+- Best-case / worst-case monthly projections
+- Recommendation: days needed to reach 80% DepEd threshold
 
-I validated this as thoroughly as I could without a physical device or an
-Android emulator:
+---
 
-- TypeScript compiles clean (`npx tsc --noEmit`).
-- Metro successfully bundles the whole app to Hermes bytecode
-  (`npx expo export --platform android`), so every import resolves and
-  there are no syntax errors.
-- `expo prebuild` generates a valid native Android project with the camera
-  permission and `expo-camera` config plugin correctly applied.
-- SheetJS's `type: 'array'` read/write round-trip was verified directly
-  in Node (write returns an `ArrayBuffer`, which the code wraps in a
-  `Uint8Array` before handing it to `File.write()`).
+## Setup
 
-What I *couldn't* verify locally (no Android SDK/emulator in this
-environment) — worth checking on first real run:
-- That `./gradlew assembleDebug` actually succeeds on the GitHub runner
-  (should work — `ubuntu-latest` ships a compatible Android SDK — but this
-  is the first time this exact dependency set has been built).
-- Real-device behavior of `CameraView`'s QR detection and `Application.getAndroidId()`.
-- Whether the Firebase RTDB rules on the existing `licenses-5c397` project
-  allow reads from a new origin/app — if license validation gets a 401/403
-  that isn't already handled, that's the first place to look.
+```bash
+# Install dependencies
+npm install
+
+# Dev (Expo Go)
+npx expo start
+
+# Build APK (sideload)
+eas build --platform android --profile preview
+```
+
+### Enable QR code display
+```bash
+# Already in package.json — just run:
+npm install
+# Then rebuild (required for native module):
+npx expo prebuild --clean
+eas build --platform android --profile preview
+```
+
+---
+
+## Project structure
+
+```
+atsys-mobile/
+├── App.tsx                        # Root: bootstrap → EULA → license → tabs
+├── src/
+│   ├── constants.ts               # MODERN_COLORS (exact PC copy), app meta
+│   ├── types.ts                   # Shared interfaces
+│   ├── storage.ts                 # AsyncStorage helpers
+│   ├── ui.tsx                     # Shared components: Card, CounterCard, TabBar, AppHeader…
+│   ├── license/
+│   │   ├── LicenseManager.ts      # Validate / verify (same Firebase project as PC)
+│   │   ├── EulaScreen.tsx
+│   │   └── LicenseEntryScreen.tsx
+│   ├── sf2/
+│   │   ├── sf2.ts                 # loadSf2 (MOVE), mark, unmark, autoDetect, getSheet
+│   │   └── LoadScreen.tsx
+│   ├── dashboard/DashboardTab.tsx  # 4 KPI cards + analytics + quick actions
+│   ├── scan/ScanTab.tsx           # Camera + DO-NOT-OPEN ticker + counters + controls
+│   ├── manual/ManualTab.tsx       # Searchable roster + mark/unmark
+│   ├── qr/QrTab.tsx               # QR grid + full-screen modal
+│   ├── stats/StatsTab.tsx         # Fuzzy search + full risk calculator
+│   ├── settings/SettingsTab.tsx   # Layout, debounce, journal, license, share
+│   └── wizard/LayoutWizard.tsx    # Step-by-step layout config modal
+└── assets/                        # Icon, splash (same assets as PC)
+```

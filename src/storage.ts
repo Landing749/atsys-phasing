@@ -1,47 +1,47 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SavedLicense } from './types';
+import { LayoutSettings, SavedLicense } from './types';
+import { LAYOUT_DEFAULTS } from './constants';
 
-const KEYS = {
-  eula: 'atsys_eula_accepted',
-  license: 'atsys_license',
-  deviceIdHash: 'atsys_device_id_hash',
+const K = {
+  eula:           'atsys_eula_accepted',
+  license:        'atsys_license',
+  deviceIdHash:   'atsys_device_id_hash',
+  layoutSettings: 'atsys_layout_settings',
+  pinEnabled:     'atsys_pin_enabled',
+  pinHash:        'atsys_pin_hash',
+  scanDebounce:   'atsys_scan_debounce',
 };
 
-/** Mirrors LicenseManager.eula_accepted() on the PC. */
-export async function isEulaAccepted(): Promise<boolean> {
-  return (await AsyncStorage.getItem(KEYS.eula)) === 'true';
-}
+export async function isEulaAccepted()       { return (await AsyncStorage.getItem(K.eula)) === 'true'; }
+export async function setEulaAccepted()      { await AsyncStorage.setItem(K.eula, 'true'); }
 
-/** Mirrors LicenseManager.accept_eula() on the PC. */
-export async function setEulaAccepted(): Promise<void> {
-  await AsyncStorage.setItem(KEYS.eula, 'true');
-}
-
-/** Mirrors LicenseManager.load_saved_license() on the PC. */
 export async function loadSavedLicense(): Promise<SavedLicense | null> {
-  const raw = await AsyncStorage.getItem(KEYS.license);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as SavedLicense;
-  } catch {
-    return null;
-  }
+  const r = await AsyncStorage.getItem(K.license);
+  if (!r) return null;
+  try { return JSON.parse(r); } catch { return null; }
 }
+export async function saveLicense(l: SavedLicense) { await AsyncStorage.setItem(K.license, JSON.stringify(l)); }
+export async function clearLicense()               { await AsyncStorage.removeItem(K.license); }
 
-/** Mirrors LicenseManager.save_license() on the PC. */
-export async function saveLicense(license: SavedLicense): Promise<void> {
-  await AsyncStorage.setItem(KEYS.license, JSON.stringify(license));
-}
+export async function getCachedDeviceIdHash()           { return AsyncStorage.getItem(K.deviceIdHash); }
+export async function setCachedDeviceIdHash(h: string)  { await AsyncStorage.setItem(K.deviceIdHash, h); }
 
-/** Mirrors LicenseManager.clear_license() on the PC. */
-export async function clearLicense(): Promise<void> {
-  await AsyncStorage.removeItem(KEYS.license);
+export async function loadLayoutSettings(): Promise<LayoutSettings> {
+  const r = await AsyncStorage.getItem(K.layoutSettings);
+  if (!r) return { ...LAYOUT_DEFAULTS };
+  try { return { ...LAYOUT_DEFAULTS, ...JSON.parse(r) }; } catch { return { ...LAYOUT_DEFAULTS }; }
 }
+export async function saveLayoutSettings(s: LayoutSettings)  { await AsyncStorage.setItem(K.layoutSettings, JSON.stringify(s)); }
+export async function resetLayoutSettings()                   { await AsyncStorage.removeItem(K.layoutSettings); }
 
-export async function getCachedDeviceIdHash(): Promise<string | null> {
-  return AsyncStorage.getItem(KEYS.deviceIdHash);
+export async function getScanDebounce(): Promise<number> {
+  const r = await AsyncStorage.getItem(K.scanDebounce);
+  return r ? parseInt(r, 10) : 2000;
 }
+export async function setScanDebounce(ms: number) { await AsyncStorage.setItem(K.scanDebounce, String(ms)); }
 
-export async function setCachedDeviceIdHash(hash: string): Promise<void> {
-  await AsyncStorage.setItem(KEYS.deviceIdHash, hash);
-}
+export async function isPinEnabled()              { return (await AsyncStorage.getItem(K.pinEnabled)) === 'true'; }
+export async function setPinEnabled(v: boolean)   { await AsyncStorage.setItem(K.pinEnabled, v ? 'true' : 'false'); }
+export async function getSavedPinHash()           { return AsyncStorage.getItem(K.pinHash); }
+export async function savePinHash(h: string)      { await AsyncStorage.setItem(K.pinHash, h); }
+export async function clearPin()                  { await AsyncStorage.multiRemove([K.pinEnabled, K.pinHash]); }
